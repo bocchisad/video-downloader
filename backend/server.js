@@ -57,8 +57,13 @@ app.post('/analyze', async (req, res) => {
   }
   
   try {
-    // Get video info using yt-dlp (no head pipe to avoid JSON truncation)
-    const command = `yt-dlp --dump-single-json --no-warnings "${url}"`;
+    // Get video info using yt-dlp with anti-bot options for YouTube
+    const command = `yt-dlp --dump-single-json --no-warnings \
+      --extractor-args "youtube:player_client=web" \
+      --geo-bypass \
+      --referer "https://www.youtube.com/" \
+      --add-header "Accept-Language:en-US,en;q=0.9" \
+      "${url}"`;
     const { stdout, stderr } = await execAsync(command, { timeout: 30000, maxBuffer: 1024 * 1024 * 5 }); // 5MB buffer
     
     if (stderr) {
@@ -177,7 +182,11 @@ app.get('/download', async (req, res) => {
     // Get video title only (safer than parsing full JSON)
     let safeTitle = 'video';
     try {
-      const titleCommand = `yt-dlp --no-warnings --print title "${url}"`;
+      const titleCommand = `yt-dlp --no-warnings --print title \
+        --extractor-args "youtube:player_client=web" \
+        --geo-bypass \
+        --referer "https://www.youtube.com/" \
+        "${url}"`;
       const { stdout: titleStdout, stderr: titleStderr } = await execAsync(titleCommand, { timeout: 15000 });
       if (titleStderr) {
         console.log('Title fetch stderr:', titleStderr);
@@ -210,7 +219,11 @@ app.get('/download', async (req, res) => {
       '--buffer-size', '8K',
       '--no-check-certificate',
       '--quiet',
-      '--no-progress'
+      '--no-progress',
+      '--extractor-args', 'youtube:player_client=web',
+      '--geo-bypass',
+      '--referer', 'https://www.youtube.com/',
+      '--add-header', 'Accept-Language:en-US,en;q=0.9'
     ];
     
     let args;
