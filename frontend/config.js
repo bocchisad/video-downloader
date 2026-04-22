@@ -4,8 +4,8 @@ const CONFIG = {
     // For local development:
     // API_URL: 'http://localhost:3000'
     
-    // For production (replace with your actual Render URL):
-    API_URL: 'https://your-backend-name.onrender.com'
+    // For production (your Render backend):
+    API_URL: 'https://video-downloader-wkuz.onrender.com'
 };
 
 // Export for use in other modules
