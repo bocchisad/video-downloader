@@ -160,13 +160,28 @@ app.get('/download', async (req, res) => {
     res.setHeader('Transfer-Encoding', 'chunked');
     
     // Build yt-dlp args for streaming
+    // Options for faster streaming:
+    // --no-cache-dir: Don't use cache
+    // --concurrent-fragments 10: Download 10 fragments in parallel
+    // --no-resize-buffer: Keep buffer size fixed
+    // --buffer-size 16K: Smaller buffer for lower latency
+    const baseArgs = [
+      '--no-cache-dir',
+      '--concurrent-fragments', '5',
+      '--no-resize-buffer',
+      '--buffer-size', '8K',
+      '--no-check-certificate',
+      '--quiet',
+      '--no-progress'
+    ];
+    
     let args;
     if (type === 'audio') {
-      args = ['-f', 'bestaudio', '--extract-audio', '--audio-format', 'mp3', '--audio-quality', '2', '-o', '-', url];
+      args = [...baseArgs, '-f', 'bestaudio', '--extract-audio', '--audio-format', 'mp3', '--audio-quality', '2', '-o', '-', url];
     } else if (format_id) {
-      args = ['-f', `${format_id}+bestaudio[ext=m4a]/best`, '--merge-output-format', 'mp4', '-o', '-', url];
+      args = [...baseArgs, '-f', `${format_id}+bestaudio[ext=m4a]/best`, '--merge-output-format', 'mp4', '-o', '-', url];
     } else {
-      args = ['-f', 'best[ext=mp4]/best', '-o', '-', url];
+      args = [...baseArgs, '-f', 'best[ext=mp4]/best', '-o', '-', url];
     }
     
     // Spawn yt-dlp for streaming
