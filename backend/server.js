@@ -57,9 +57,9 @@ app.post('/analyze', async (req, res) => {
   }
   
   try {
-    // Get video info using yt-dlp
-    const command = `yt-dlp -j --no-warnings "${url}" 2>&1 | head -c 50000`;
-    const { stdout, stderr } = await execAsync(command, { timeout: 30000 });
+    // Get video info using yt-dlp (no head pipe to avoid JSON truncation)
+    const command = `yt-dlp -j --no-warnings "${url}"`;
+    const { stdout, stderr } = await execAsync(command, { timeout: 30000, maxBuffer: 1024 * 1024 * 2 }); // 2MB buffer
     
     if (stderr && !stdout) {
       throw new Error(stderr);
@@ -152,12 +152,12 @@ app.get('/download', async (req, res) => {
   }
   
   try {
-    // Get video info for filename
-    const infoCommand = `yt-dlp -j --no-warnings "${url}" 2>&1 | head -c 10000`;
-    const { stdout: infoStdout } = await execAsync(infoCommand, { timeout: 15000 });
-    const videoInfo = JSON.parse(infoStdout);
+    // Get video title only (safer than parsing full JSON)
+    const titleCommand = `yt-dlp --no-warnings --print title "${url}" 2>&1`;
+    const { stdout: titleStdout } = await execAsync(titleCommand, { timeout: 15000 });
+    const videoTitle = titleStdout.trim();
     
-    const safeTitle = videoInfo.title?.replace(/[^a-zA-Z0-9\u0400-\u04FF\s-]/g, '').substring(0, 50) || 'video';
+    const safeTitle = videoTitle?.replace(/[^a-zA-Z0-9\u0400-\u04FF\s-]/g, '').substring(0, 50) || 'video';
     const extension = type === 'audio' ? 'mp3' : 'mp4';
     const filename = `${safeTitle}.${extension}`;
     
