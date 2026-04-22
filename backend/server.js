@@ -118,13 +118,20 @@ app.post('/analyze', async (req, res) => {
       return (qualityOrder[b.quality] || 0) - (qualityOrder[a.quality] || 0);
     });
     
+    // Calculate total file size warning
+    const MAX_SIZE_MB = 200;
+    const totalSizeMB = formats.reduce((sum, f) => sum + (f.filesize || 0), 0) / (1024 * 1024);
+    const warning = totalSizeMB > MAX_SIZE_MB ? 
+      `Файл слишком большой (${Math.round(totalSizeMB)}MB). Бесплатный план Render ограничен ~100 сек. Попробуйте Audio Only или качество 360p.` : null;
+    
     res.json({
       title: videoInfo.title || 'Unknown Title',
       thumbnail: videoInfo.thumbnail || null,
       duration: videoInfo.duration || null,
       uploader: videoInfo.uploader || null,
       formats: formats,
-      original_url: url
+      original_url: url,
+      warning: warning
     });
     
   } catch (error) {

@@ -107,6 +107,25 @@ function showVideoInfo(data) {
     
     videoCard.classList.remove('hidden');
     
+    // Show warning for large files
+    if (data.warning) {
+        const warningEl = document.createElement('div');
+        warningEl.id = 'sizeWarning';
+        warningEl.className = 'md:col-span-12 mt-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm';
+        warningEl.innerHTML = `
+            <div class="flex items-center gap-2">
+                <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+                <span>${data.warning}</span>
+            </div>
+        `;
+        // Insert after videoCard
+        videoCard.parentNode.insertBefore(warningEl, videoCard.nextSibling);
+        lucide.createIcons();
+    } else {
+        const existingWarning = document.getElementById('sizeWarning');
+        if (existingWarning) existingWarning.remove();
+    }
+    
     // Render quality tags
     renderQualityTags(data.formats);
     qualityCard.classList.remove('hidden');
