@@ -58,14 +58,36 @@ app.post('/analyze', async (req, res) => {
   
   try {
     // Get video info using yt-dlp (no head pipe to avoid JSON truncation)
-    const command = `yt-dlp -j --no-warnings "${url}"`;
-    const { stdout, stderr } = await execAsync(command, { timeout: 30000, maxBuffer: 1024 * 1024 * 2 }); // 2MB buffer
+    const command = `yt-dlp --dump-single-json --no-warnings "${url}"`;
+    const { stdout, stderr } = await execAsync(command, { timeout: 30000, maxBuffer: 1024 * 1024 * 5 }); // 5MB buffer
     
-    if (stderr && !stdout) {
-      throw new Error(stderr);
+    if (stderr) {
+      console.log('yt-dlp stderr:', stderr);
     }
     
-    const videoInfo = JSON.parse(stdout);
+    if (!stdout) {
+      throw new Error('Empty response from yt-dlp');
+    }
+    
+    // Trim any whitespace and find the first { to handle any garbage at start
+    const jsonStart = stdout.indexOf('{');
+    const jsonEnd = stdout.lastIndexOf('}');
+    if (jsonStart === -1 || jsonEnd === -1) {
+      console.error('Invalid JSON response:', stdout.substring(0, 500));
+      throw new Error('No valid JSON found in response');
+    }
+    
+    const jsonString = stdout.substring(jsonStart, jsonEnd + 1);
+    
+    let videoInfo;
+    try {
+      videoInfo = JSON.parse(jsonString);
+    } catch (parseErr) {
+      console.error('JSON parse error:', parseErr.message);
+      console.error('JSON start:', jsonString.substring(0, 200));
+      console.error('JSON end:', jsonString.substring(jsonString.length - 200));
+      throw new Error('Failed to parse video info');
+    }
     
     // Extract available formats
     const formats = [];
@@ -153,11 +175,20 @@ app.get('/download', async (req, res) => {
   
   try {
     // Get video title only (safer than parsing full JSON)
-    const titleCommand = `yt-dlp --no-warnings --print title "${url}" 2>&1`;
-    const { stdout: titleStdout } = await execAsync(titleCommand, { timeout: 15000 });
-    const videoTitle = titleStdout.trim();
-    
-    const safeTitle = videoTitle?.replace(/[^a-zA-Z0-9\u0400-\u04FF\s-]/g, '').substring(0, 50) || 'video';
+    let safeTitle = 'video';
+    try {
+      const titleCommand = `yt-dlp --no-warnings --print title "${url}"`;
+      const { stdout: titleStdout, stderr: titleStderr } = await execAsync(titleCommand, { timeout: 15000 });
+      if (titleStderr) {
+        console.log('Title fetch stderr:', titleStderr);
+      }
+      const videoTitle = titleStdout?.trim();
+      if (videoTitle) {
+        safeTitle = videoTitle.replace(/[^a-zA-Z0-9\u0400-\u04FF\s-]/g, '').substring(0, 50);
+      }
+    } catch (titleErr) {
+      console.log('Could not fetch title, using default:', titleErr.message);
+    }
     const extension = type === 'audio' ? 'mp3' : 'mp4';
     const filename = `${safeTitle}.${extension}`;
     
