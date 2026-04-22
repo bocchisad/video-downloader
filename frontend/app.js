@@ -212,6 +212,8 @@ async function downloadVideo() {
         <span>Подготовка...</span>
     `;
     downloadStatus.textContent = 'Загрузка начнется автоматически';
+    downloadStatus.classList.remove('text-red-400');
+    downloadStatus.classList.add('text-slate-400');
     downloadStatus.classList.remove('hidden');
     lucide.createIcons();
     
@@ -224,27 +226,42 @@ async function downloadVideo() {
         
         const downloadUrl = `${CONFIG.API_URL}/download?${params}`;
         
-        // Create hidden iframe for download
-        const iframe = document.createElement('iframe');
-        iframe.style.display = 'none';
-        iframe.src = downloadUrl;
-        document.body.appendChild(iframe);
+        // Use fetch to download and create blob
+        const response = await fetch(downloadUrl);
         
-        // Cleanup
+        if (!response.ok) {
+            throw new Error('Download failed');
+        }
+        
+        const blob = await response.blob();
+        const downloadLink = document.createElement('a');
+        downloadLink.href = URL.createObjectURL(blob);
+        
+        // Get filename from Content-Disposition header or use default
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = 'video.mp4';
+        if (contentDisposition) {
+            const match = contentDisposition.match(/filename="([^"]+)"/);
+            if (match) filename = match[1];
+        }
+        
+        downloadLink.download = filename;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        URL.revokeObjectURL(downloadLink.href);
+        
+        downloadBtn.disabled = false;
+        downloadBtn.innerHTML = `
+            <i data-lucide="download" class="w-5 h-5"></i>
+            <span>Скачать</span>
+        `;
+        downloadStatus.textContent = 'Загрузка завершена!';
+        lucide.createIcons();
+        
         setTimeout(() => {
-            document.body.removeChild(iframe);
-            downloadBtn.disabled = false;
-            downloadBtn.innerHTML = `
-                <i data-lucide="download" class="w-5 h-5"></i>
-                <span>Скачать</span>
-            `;
-            downloadStatus.textContent = 'Загрузка началась!';
-            lucide.createIcons();
-            
-            setTimeout(() => {
-                downloadStatus.classList.add('hidden');
-            }, 3000);
-        }, 2000);
+            downloadStatus.classList.add('hidden');
+        }, 3000);
         
     } catch (error) {
         console.error('Download error:', error);

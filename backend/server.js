@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 const { promisify } = require('util');
 const path = require('path');
 const fs = require('fs');
@@ -157,24 +157,39 @@ app.get('/download', async (req, res) => {
     // Set headers for download
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Type', type === 'audio' ? 'audio/mpeg' : 'video/mp4');
+    res.setHeader('Transfer-Encoding', 'chunked');
     
-    // Build yt-dlp command
-    let command;
+    // Build yt-dlp args for streaming
+    let args;
     if (type === 'audio') {
-      command = `yt-dlp -f bestaudio --extract-audio --audio-format mp3 --audio-quality 2 -o - "${url}"`;
+      args = ['-f', 'bestaudio', '--extract-audio', '--audio-format', 'mp3', '--audio-quality', '2', '-o', '-', url];
     } else if (format_id) {
-      command = `yt-dlp -f "${format_id}+bestaudio[ext=m4a]/best" --merge-output-format mp4 -o - "${url}"`;
+      args = ['-f', `${format_id}+bestaudio[ext=m4a]/best`, '--merge-output-format', 'mp4', '-o', '-', url];
     } else {
-      command = `yt-dlp -f "best[ext=mp4]/best" -o - "${url}"`;
+      args = ['-f', 'best[ext=mp4]/best', '-o', '-', url];
     }
     
-    // Stream the video
-    const { stdout, stderr } = await execAsync(command, { 
-      encoding: 'buffer',
-      maxBuffer: 1024 * 1024 * 500 // 500MB buffer
+    // Spawn yt-dlp for streaming
+    const ytDlp = spawn('yt-dlp', args);
+    
+    ytDlp.stdout.pipe(res);
+    
+    ytDlp.stderr.on('data', (data) => {
+      console.log('yt-dlp stderr:', data.toString());
     });
     
-    res.send(stdout);
+    ytDlp.on('error', (error) => {
+      console.error('yt-dlp error:', error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to stream video' });
+      }
+    });
+    
+    ytDlp.on('close', (code) => {
+      if (code !== 0) {
+        console.error(`yt-dlp exited with code ${code}`);
+      }
+    });
     
   } catch (error) {
     console.error('Download error:', error.message);
