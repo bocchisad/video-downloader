@@ -58,12 +58,7 @@ app.post('/analyze', async (req, res) => {
   
   try {
     // Get video info using yt-dlp with anti-bot options for YouTube
-    const command = `yt-dlp --dump-single-json --no-warnings \
-      --extractor-args "youtube:player_client=web" \
-      --geo-bypass \
-      --referer "https://www.youtube.com/" \
-      --add-header "Accept-Language:en-US,en;q=0.9" \
-      "${url}"`;
+    const command = `yt-dlp --dump-single-json --no-warnings --extractor-args "youtube:player_client=web" --geo-bypass --referer "https://www.youtube.com/" --add-header "Accept-Language:en-US,en;q=0.9" "${url}"`;
     const { stdout, stderr } = await execAsync(command, { timeout: 30000, maxBuffer: 1024 * 1024 * 5 }); // 5MB buffer
     
     if (stderr) {
@@ -182,11 +177,7 @@ app.get('/download', async (req, res) => {
     // Get video title only (safer than parsing full JSON)
     let safeTitle = 'video';
     try {
-      const titleCommand = `yt-dlp --no-warnings --print title \
-        --extractor-args "youtube:player_client=web" \
-        --geo-bypass \
-        --referer "https://www.youtube.com/" \
-        "${url}"`;
+      const titleCommand = `yt-dlp --no-warnings --print title --extractor-args "youtube:player_client=web" --geo-bypass --referer "https://www.youtube.com/" "${url}"`;
       const { stdout: titleStdout, stderr: titleStderr } = await execAsync(titleCommand, { timeout: 15000 });
       if (titleStderr) {
         console.log('Title fetch stderr:', titleStderr);
@@ -206,12 +197,7 @@ app.get('/download', async (req, res) => {
     res.setHeader('Content-Type', type === 'audio' ? 'audio/mpeg' : 'video/mp4');
     res.setHeader('Transfer-Encoding', 'chunked');
     
-    // Build yt-dlp args for streaming
-    // Options for faster streaming:
-    // --no-cache-dir: Don't use cache
-    // --concurrent-fragments 10: Download 10 fragments in parallel
-    // --no-resize-buffer: Keep buffer size fixed
-    // --buffer-size 16K: Smaller buffer for lower latency
+    // Build yt-dlp args for streaming with anti-bot options
     const baseArgs = [
       '--no-cache-dir',
       '--concurrent-fragments', '5',
